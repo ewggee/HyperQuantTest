@@ -2,14 +2,17 @@
 
 namespace Connector.Core.Interfaces;
 
+//todo: упомянуть в доках про:
+//1. изменение возвращаемых значений у методов с void на Task
+//2. удаление неиспользуемых параметров методов
 public interface IWebSocketConnector
 {
     event Action<Trade> NewBuyTrade;
     event Action<Trade> NewSellTrade;
-    void SubscribeTrades(string pair, int maxCount = 100);
-    void UnsubscribeTrades(string pair);
+    Task SubscribeTradesAsync(string pair);
+    Task UnsubscribeTradesAsync(string pair);
 
     event Action<Candle> CandleSeriesProcessing;
-    void SubscribeCandles(string pair, int periodInSec, DateTimeOffset? from = null, DateTimeOffset? to = null, long? count = 0);
-    void UnsubscribeCandles(string pair);
+    Task SubscribeCandlesAsync(string pair, int periodInSec);
+    Task UnsubscribeCandlesAsync(string pair);
 }
