@@ -17,7 +17,7 @@ public class PortfolioController : ControllerBase
     [HttpPost("balance")]
     public async Task<IActionResult> CalculcateBalance([FromBody] Dictionary<string, decimal> assets)
     {
-        var balance = await _portfolioService.CalculateBalancesAsync(assets);
+        var balance = await _portfolioService.CalculateBalanceAsync(assets);
 
         return Ok(balance);
     }

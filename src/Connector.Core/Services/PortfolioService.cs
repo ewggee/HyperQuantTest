@@ -11,7 +11,7 @@ public class PortfolioService
         _connector = connector;
     }
 
-    public async Task<Dictionary<string, decimal>> CalculateBalancesAsync(Dictionary<string, decimal> assets)
+    public async Task<Dictionary<string, decimal>> CalculateBalanceAsync(Dictionary<string, decimal> assets)
     {
         var rates = new Dictionary<string, decimal>();
 
