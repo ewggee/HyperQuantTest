@@ -7,6 +7,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Connector.Core", "src\Conne
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Connector.WebAPI", "src\Connector.WebAPI\Connector.WebAPI.csproj", "{E74D0616-6A9A-472E-AAE0-09D3CCB25C91}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Connector.IntegrationTests", "tests\Connector.IntegrationTests\Connector.IntegrationTests.csproj", "{62343D1B-AFEB-4726-BCA3-7AC89CC8DCAA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{E74D0616-6A9A-472E-AAE0-09D3CCB25C91}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E74D0616-6A9A-472E-AAE0-09D3CCB25C91}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E74D0616-6A9A-472E-AAE0-09D3CCB25C91}.Release|Any CPU.Build.0 = Release|Any CPU
+		{62343D1B-AFEB-4726-BCA3-7AC89CC8DCAA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{62343D1B-AFEB-4726-BCA3-7AC89CC8DCAA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{62343D1B-AFEB-4726-BCA3-7AC89CC8DCAA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{62343D1B-AFEB-4726-BCA3-7AC89CC8DCAA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
