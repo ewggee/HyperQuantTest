@@ -29,7 +29,7 @@ public class BitfinexConnector : ITestConnector, IDisposable
         remove => _wsClient.NewSellTrade -= value;
     }
 
-    public event Action<Candle> CandleSeriesProcessing
+    public event Action<IEnumerable<Candle>> CandleSeriesProcessing
     {
         add => _wsClient.CandleSeriesProcessing += value;
         remove => _wsClient.CandleSeriesProcessing -= value;

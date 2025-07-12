@@ -15,7 +15,7 @@ public class BitfinexWebSocketClient : IDisposable
 
     public event Action<Trade> NewBuyTrade = null!;
     public event Action<Trade> NewSellTrade = null!;
-    public event Action<Candle> CandleSeriesProcessing = null!;
+    public event Action<IEnumerable<Candle>> CandleSeriesProcessing = null!;
 
     public BitfinexWebSocketClient()
     {
@@ -103,7 +103,7 @@ public class BitfinexWebSocketClient : IDisposable
 
     private async Task ReceiveMessages()
     {
-        var buffer = new byte[8192];
+        var buffer = new byte[64 * 1024];
         while (_ws.State == WebSocketState.Open && !_cts.IsCancellationRequested)
         {
             try
@@ -131,69 +131,113 @@ public class BitfinexWebSocketClient : IDisposable
         using var doc = JsonDocument.Parse(message);
         var root = doc.RootElement;
 
-        if (root.TryGetProperty("event", out var eventProp)
+        // Обработка подписок
+        if (root.ValueKind == JsonValueKind.Object
+            && root.TryGetProperty("event", out var eventProp)
             && eventProp.GetString() == "subscribed")
         {
-            _subscriptions[root.GetProperty("chanId").GetInt32()] =
-                $"{root.GetProperty("channel").GetString()}:{root.GetProperty("symbol").GetString()}";
-
-            return;
+            ProcessSubscribeMessage(root);
         }
-
-        if (root.ValueKind == JsonValueKind.Array && root.GetArrayLength() > 1)
+        // Обработка данных торгов
+        else if (root.ValueKind == JsonValueKind.Array
+            && root.GetArrayLength() > 1)
         {
-            var channelId = root[0].GetInt32();
-            if (_subscriptions.TryGetValue(channelId, out var channelType))
-            {
-                if (channelType.StartsWith("trades"))
-                    ProcessTradeMessage(root);
-                else if (channelType.StartsWith("candles"))
-                    ProcessCandleMessage(root);
-            }
+            ProcessDataMessage(root);
+        }
+    }
+
+    private void ProcessSubscribeMessage(JsonElement root)
+    {
+        var chanId = root.GetProperty("chanId").GetInt32();
+        var channel = root.GetProperty("channel").GetString();
+
+        var symbol = root.TryGetProperty("symbol", out var symbolProp)
+            ? symbolProp.GetString()
+            : root.GetProperty("key").GetString()?.Split(':').Last();
+
+        _subscriptions[chanId] = $"{channel}:{symbol}";
+    }
+
+    private void ProcessDataMessage(JsonElement root)
+    {
+        var channelId = root[0].GetInt32();
+        if (!_subscriptions.TryGetValue(channelId, out var channelType))
+            return;
+
+        if (channelType.StartsWith("trades"))
+        {
+            ProcessTradeMessage(root);
+        }
+        else if (channelType.StartsWith("candles"))
+        {
+            ProcessCandleMessage(root);
         }
     }
 
     private void ProcessTradeMessage(JsonElement root)
     {
-        if (root.GetArrayLength() > 1 && root[1].ValueKind == JsonValueKind.String)
-        {
-            var tradeType = root[1].GetString();
-            if (tradeType == "tu" || tradeType == "te") // Trade update/execution
-            {
-                var trade = new Trade
-                {
-                    Id = root[3].GetInt64().ToString(),
-                    Price = root[4].GetDecimal(),
-                    Amount = Math.Abs(root[5].GetDecimal()),
-                    Side = root[5].GetDecimal() > 0 ? "buy" : "sell",
-                    Time = DateTimeOffset.FromUnixTimeMilliseconds(root[2].GetInt64()),
-                    Pair = root[3].GetString()
-                };
+        if (root.GetArrayLength() < 3 || root[1].ValueKind != JsonValueKind.String)
+            return;
 
-                if (trade.Side == "buy")
-                    NewBuyTrade?.Invoke(trade);
-                else
-                    NewSellTrade?.Invoke(trade);
-            }
-        }
+        // te - Trade Execution, tu - Trade Update
+        var messageType = root[1].GetString();
+        if (messageType != "te" && messageType != "tu")
+            return;
+
+        var tradeData = root[2];
+        if (tradeData.ValueKind != JsonValueKind.Array || tradeData.GetArrayLength() < 4)
+            return;
+
+        var channelId = root[0].GetInt32();
+        if (!_subscriptions.TryGetValue(channelId, out var channelInfo))
+            return;
+
+        var pair = channelInfo.Split(':')[1];
+
+        var trade = new Trade
+        {
+            Id = tradeData[0].GetInt64().ToString(),
+            Time = DateTimeOffset.FromUnixTimeMilliseconds(tradeData[1].GetInt64()),
+            Amount = Math.Abs(tradeData[2].GetDecimal()),
+            Price = tradeData[3].GetDecimal(),
+            Side = tradeData[2].GetDecimal() > 0 ? "buy" : "sell", 
+            Pair = pair
+        };
+
+        if (trade.Side == "buy")
+            NewBuyTrade?.Invoke(trade);
+        else
+            NewSellTrade?.Invoke(trade);
     }
 
     private void ProcessCandleMessage(JsonElement root)
     {
-        if (root.GetArrayLength() > 1 && root[1].ValueKind == JsonValueKind.Array)
+        if (root.ValueKind != JsonValueKind.Array || root.GetArrayLength() < 2)
+            return;
+
+        var candlesArray = root[1];
+        if (candlesArray.ValueKind != JsonValueKind.Array || candlesArray.GetArrayLength() == 0)
+            return;
+
+        var candlesList = new List<Candle>();
+        foreach (var candleElement in candlesArray.EnumerateArray())
         {
-            var candleData = root[1];
+            if (candleElement.ValueKind != JsonValueKind.Array || candleElement.GetArrayLength() < 6)
+                continue;
+
             var candle = new Candle
             {
-                OpenTime = DateTimeOffset.FromUnixTimeMilliseconds(candleData[0].GetInt64()),
-                OpenPrice = candleData[1].GetDecimal(),
-                HighPrice = candleData[3].GetDecimal(),
-                LowPrice = candleData[4].GetDecimal(),
-                ClosePrice = candleData[2].GetDecimal(),
-                TotalVolume = candleData[5].GetDecimal()
+                OpenTime = DateTimeOffset.FromUnixTimeMilliseconds(candleElement[0].GetInt64()),
+                OpenPrice = candleElement[1].GetDecimal(),
+                ClosePrice = candleElement[2].GetDecimal(),
+                HighPrice = candleElement[3].GetDecimal(),
+                LowPrice = candleElement[4].GetDecimal(),
+                TotalVolume = candleElement[5].GetDecimal()
             };
-            CandleSeriesProcessing?.Invoke(candle);
+
+            candlesList.Add(candle);
         }
+        CandleSeriesProcessing?.Invoke(candlesList);
     }
 
     public void Dispose()
