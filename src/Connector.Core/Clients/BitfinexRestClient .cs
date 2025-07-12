@@ -26,7 +26,6 @@ public class BitfinexRestClient
         var start = from?.ToUnixTimeMilliseconds();
         var end = to?.ToUnixTimeMilliseconds();
 
-        //todo: упомянуть в доках про контекст синхронизации
         var response = await _api.GetTradesAsync(pair, limit, sortAsc ? 1 : -1, start, end)
             .ConfigureAwait(false);
 
@@ -57,10 +56,6 @@ public class BitfinexRestClient
         var response = await _api.GetCandleSeriesAsync(pair, timeFrame, start, end, limit)
             .ConfigureAwait(false);
 
-        //todo: вынести в доки
-        //Спорный момент насчёт decimal-свойств класса Candle,
-        //т.к. апи возвращает натуральное число для: OPEN, CLOSE, HIGH, LOW
-        //https://docs.bitfinex.com/reference/rest-public-candles#response-fields
         return response.Select(c => new Candle
         {
             OpenTime = DateTimeOffset.FromUnixTimeMilliseconds((long)c[0]),
@@ -72,7 +67,6 @@ public class BitfinexRestClient
         });
     }
 
-    //todo: упомянуть про ticker в ТЗ
     /// <exception cref="BitfinexApiException"></exception>
     public async Task<Ticker> GetTickerAsync(string pair)
     {

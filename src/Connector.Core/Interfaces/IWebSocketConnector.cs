@@ -2,10 +2,6 @@
 
 namespace Connector.Core.Interfaces;
 
-//todo: упомянуть в доках про:
-//1. изменение возвращаемых значений у методов с void на Task
-//2. удаление неиспользуемых параметров методов
-//3. IEnumerable<Candle> в ивенте CandleSeriesProcessing вместо Candle
 public interface IWebSocketConnector
 {
     event Action<Trade> NewBuyTrade;
