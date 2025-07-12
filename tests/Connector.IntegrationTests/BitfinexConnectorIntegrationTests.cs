@@ -1,15 +1,23 @@
 using Connector.Core.Connectors;
+using Connector.Core.Models;
 using Refit;
 
 namespace Connector.IntegrationTests;
 
 public class BitfinexConnectorIntegrationTests : IDisposable
 {
+    private readonly TimeSpan Timeout = TimeSpan.FromMinutes(60);
     private readonly BitfinexConnector _connector;
 
     public BitfinexConnectorIntegrationTests()
     {
         _connector = new BitfinexConnector();
+    }
+
+    public void Dispose()
+    {
+        _connector.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     [Theory]
@@ -99,9 +107,71 @@ public class BitfinexConnectorIntegrationTests : IDisposable
         await Assert.ThrowsAsync<ApiException>(() => _connector.GetTickerAsync(pair));
     }
 
-    public void Dispose()
+    [Fact]
+    public async Task NewBuySellTrade_ReturnsTrade()
     {
-        _connector.Dispose();
-        GC.SuppressFinalize(this);
+        var pairs = new string[] { "tETHUSD", "tBTCUSD", "tXRPUSD" };
+
+        var tradeReceived = new TaskCompletionSource<bool>();
+        Trade? receivedTrade = null;
+
+        _connector.NewBuyTrade += trade =>
+        {
+            receivedTrade = trade;
+            tradeReceived.SetResult(true);
+        };
+        _connector.NewSellTrade += trade =>
+        {
+            receivedTrade = trade;
+            tradeReceived.SetResult(true);
+        };
+
+        foreach (var pair in pairs)
+        {
+            await _connector.SubscribeTradesAsync(pair);
+        }
+
+        var completedTask = await Task.WhenAny(tradeReceived.Task, Task.Delay(Timeout));
+
+        if (completedTask == tradeReceived.Task)
+        {
+            Assert.NotNull(receivedTrade);
+        }
+        else
+        {
+            Assert.Fail($"No trade received within the timeout period: {Timeout}.\nPlease try again or increase the '{nameof(Timeout)}' value.");
+        }
+    }
+
+    [Fact]
+    public async Task CandleSeriesProcessing_ReturnsCandle()
+    {
+        var pairs = new string[] { "tETHUSD", "tBTCUSD", "tXRPUSD" };
+        var periodInSecForHour = (int)TimeSpan.FromHours(1).TotalSeconds;
+
+        var candlesReceived = new TaskCompletionSource<bool>();
+        IEnumerable<Candle>? receivedCandles = null;
+
+        _connector.CandleSeriesProcessing += candles =>
+        {
+            receivedCandles = candles;
+            candlesReceived.SetResult(true);
+        };
+
+        foreach (var pair in pairs)
+        {
+            await _connector.SubscribeCandlesAsync(pair, periodInSecForHour);
+        }
+
+        var completedTask = await Task.WhenAny(candlesReceived.Task, Task.Delay(Timeout));
+
+        if (completedTask == candlesReceived.Task)
+        {
+            Assert.NotNull(receivedCandles);
+        }
+        else
+        {
+            Assert.Fail($"No candle received within the timeout period: {Timeout}.\nPlease try again or increase the '{nameof(Timeout)}' value.");
+        }
     }
 }
