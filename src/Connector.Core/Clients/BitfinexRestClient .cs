@@ -1,5 +1,4 @@
-﻿using Connector.Core.Exceptions;
-using Connector.Core.Helpers;
+﻿using Connector.Core.Helpers;
 using Connector.Core.Models;
 using Refit;
 
@@ -15,13 +14,20 @@ public class BitfinexRestClient
     }
 
     /// <exception cref="ArgumentException"></exception>
-    public async Task<IEnumerable<Trade>> GetTradesAsync(string pair, int limit)
+    public async Task<IEnumerable<Trade>> GetTradesAsync(
+        string pair, DateTimeOffset? from = null, DateTimeOffset? to = null, bool sortAsc = false, int limit = 125)
     {
         if (limit < 0 || limit > 10_000)
             throw new ArgumentException("Limit must be between 1 and 10'000");
 
+        if (from >= to)
+            throw new ArgumentException("'from' date cannot be less than or equal to 'to'");
+
+        var start = from?.ToUnixTimeMilliseconds();
+        var end = to?.ToUnixTimeMilliseconds();
+
         //todo: упомянуть в доках про контекст синхронизации
-        var response = await _api.GetTradesAsync(pair, limit)
+        var response = await _api.GetTradesAsync(pair, limit, sortAsc ? 1 : -1, start, end)
             .ConfigureAwait(false);
 
         return response.Select(t => new Trade
@@ -57,7 +63,7 @@ public class BitfinexRestClient
         //https://docs.bitfinex.com/reference/rest-public-candles#response-fields
         return response.Select(c => new Candle
         {
-            OpenTime = DateTimeOffset.FromUnixTimeMilliseconds((int)c[0]),
+            OpenTime = DateTimeOffset.FromUnixTimeMilliseconds((long)c[0]),
             OpenPrice = c[1],
             HighPrice = c[2],
             LowPrice = c[3],
@@ -72,13 +78,6 @@ public class BitfinexRestClient
     {
         var response = await _api.GetTickerAsync(pair)
             .ConfigureAwait(false);
-
-        if (response[0].ToString() == "error" && response[1] == 10020)
-        {
-            throw new BitfinexApiException(
-                errorCode: (int)response[1],
-                message: $"Invalid pair: {pair}");
-        }
 
         return new Ticker
         {

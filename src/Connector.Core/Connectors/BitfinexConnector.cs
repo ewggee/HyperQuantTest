@@ -35,9 +35,10 @@ public class BitfinexConnector : ITestConnector, IDisposable
         remove => _wsClient.CandleSeriesProcessing -= value;
     }
 
-    public Task<IEnumerable<Trade>> GetNewTradesAsync(string pair, int maxCount)
+    public Task<IEnumerable<Trade>> GetNewTradesAsync(
+        string pair, DateTimeOffset? from = null, DateTimeOffset? to = null, bool sortAsc = false, int maxCount = 125)
     {
-        return _restClient.GetTradesAsync(pair, maxCount);
+        return _restClient.GetTradesAsync(pair, from, to, sortAsc, maxCount);
     }
 
     public Task<IEnumerable<Candle>> GetCandleSeriesAsync(string pair, int periodInSec, DateTimeOffset? from, DateTimeOffset? to = null, int? count = 0)

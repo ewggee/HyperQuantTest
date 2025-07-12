@@ -4,7 +4,7 @@ namespace Connector.Core.Interfaces;
 
 public interface IRestConnector
 {
-    Task<IEnumerable<Trade>> GetNewTradesAsync(string pair, int maxCount);
+    Task<IEnumerable<Trade>> GetNewTradesAsync(string pair, DateTimeOffset? from, DateTimeOffset? to = null, bool sortAsc = false, int maxCount = 125);
 
     //todo: вынести в доки
     //Тип для count изменил с long на int, т.к. апи максимум может вернуть 10000 записей, поэтому long в данном случае считаю оверхедом
